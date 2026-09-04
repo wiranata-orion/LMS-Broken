@@ -6,7 +6,7 @@
         <div class="border-t pt-4">
             <h2 class="text-xl font-semibold mb-2">Deskripsi Mata Kuliah</h2>
             <div class="prose">
-                {!! $course['description'] !!}
+             {{ $course['description'] }}
             </div>
         </div>
 
