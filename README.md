@@ -1,81 +1,166 @@
 # Temuan Masalah
 
-## Temuan ke-1
-`@vite(['resources/css/app.css', 'resources/js/app.js'])` menyembabkan error karena `npm` belum di install di directory, setelah install `npm` ![alt text](screenshot/image.png)
+## 1. Urutan migrasi salah
 
-## Temuan ke-2
+Masalah utama ada di urutan file migrasi:
 
-Pada bagian tambah mata kuliah terjadi eror 404 di karenakan laravel membaca dari atas kebawah, karena laravel menemukan route yang sama dengan yang di minta maka dia akan langsung menjalankan route yang paling atas itu terjadi karena routenya mirip, padahal route yang di minta ada di paling bawah.
+- `database/migrations/2026_01_01_000001_create_courses_table.php`
+- `database/migrations/2026_01_01_000002_create_users_table.php`
+
+Pada `courses`, kolom `lecturer_id` dibuat dengan relasi ke tabel `users`:
+
 ```php
-Route::get('/courses/{id}/delete', [CourseController::class, 'destroy'])->name('courses.destroy.broken');
-
-Route::get('/courses/{id}', [CourseController::class, 'show'])->name('courses.show');
-Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');
-Route::get('/courses/create', [CourseController::class, 'create'])->name('courses.create');
-
-Route::post('/courses', [CourseController::class, 'store'])->name('courses.store');
+$table->foreignId('lecturer_id')->constrained('users')->cascadeOnDelete();
 ```
 
-ubah menjadi seperti ini urutanya, maka errornya hilang.
+Tabel `users` seharusnya sudah ada sebelum migrasi `courses` dijalankan. Karena saat ini `create_courses_table` berada sebelum `create_users_table`, membuat migrasi gagal saat menjalankan foreign key, karena `users` belum dibuat.
+
+### Solusi
+Nama file migrasi harus diubah agar urutannya sesuai karena `courses` menggunakan` Foregin Key` dari `users`.
+
+---
+
+## 2. Unique composite pertama hilang di `course_user`
+
+Pada `database/migrations/2026_01_01_000003_create_course_user_table.php`
+
+Tabel `course_user` saat ini hanya membuat kolom `course_id` dan `user_id`.
+
 ```php
-Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');
-Route::post('/courses', [CourseController::class, 'store'])->name('courses.store');
-Route::get('/courses/create', [CourseController::class, 'create'])->name('courses.create');
-Route::get('/courses/{id}', [CourseController::class, 'show'])->name('courses.show');
-Route::get('/courses/{id}/delete', [CourseController::class, 'destroy'])->name('courses.destroy.broken');
+$table->foreignId('course_id')->constrained()->cascadeOnDelete();
+$table->foreignId('user_id')->constrained()->cascadeOnDelete();
 ```
 
-## Temuan ke-3
-Route `get` pada bagian delete harusnya di ubah menjadi `POST`, Route::POST('/courses/{id}/delete', [CourseController::class, 'destroy'])->name('courses.destroy.broken');
+### Dampak
+- Satu user dapat mendaftar ke satu course lebih dari satu kali.
 
-## Temuan ke-4
-Pada bagian `show.blade.php` pada kode `{!! $course['description'] !!}` sehaursnya diubah menjadi `{{$course['description'] }}`, karena `{!! $course['description'] !!}` bisa membuat browser mengkesekusi kode program yang di sisipkan, sementara `{{$course['description'] }}` hanya menampilkan teks saja.  
+### Solusi
+Tambahkan unique composite:
 
-## Temuan ke-5
-Pada bagian `index.blade.php` pada kode
 ```php
-<a href="/courses/{{ $course['id'] }}" class="text-gray-600 hover:underline">Detail</a>
-<a href="/courses/{{ $course['id'] }}/delete" class="text-red-600 hover:underline" onclick="return confirm('Hapus?')">Hapus</a>
+$table->unique(['course_id', 'user_id']);
 ```
 
-seharusnya diubah menjadi 
+---
+
+## 3. Unique composite kedua hilang di `submissions`
+
+Pada `database/migrations/2026_01_01_000006_create_submissions_table.php`
+
+Tabel `submissions` saat ini dibuat tanpa constraint unik gabungan pada:
+
+- `assignment_id`
+- `user_id`
+
+Padahal secara logika, satu user biasanya hanya boleh mengirim satu submission per assignment.
+
+### Dampak
+- Duplikasi submission untuk assignment yang sama oleh user yang sama.
+
+### Solusi yang disarankan
+Tambahkan:
+
 ```php
-<a href="{{ route('courses.show', $course['id']) }}" class="text-gray-600 hover:underline">Detail</a>
-    
-    <form action="{{ route('courses.destroy', $course['id']) }}" method="POST" class="inline" onsubmit="return confirm('Hapus mata kuliah ini?')">
-        @csrf
-        @method('DELETE')
-        <button type="submit" class="text-red-600 hover:underline">Hapus</button>
-    </form>
+$table->unique(['assignment_id', 'user_id']);
 ```
-karena `href` diperuntukan untuk berpindah-pindah halaman, sedangkan `form` diperuntukan untuk mengirimkan data ke server, serta kelebihannya memiliki keamanan csrf.
 
-## Temuan ke-6
+---
 
-Pada bagian `index.blade.php` ditemukan kode logika yaitu
+## 4. `onDelete` yang keliru di `materials`
+
+Pada `database/migrations/2026_01_01_000004_create_materials_table.php`
+
+Baris yang bermasalah:
+
 ```php
-@php
-    $activeCourses = array_filter($courses, function($c) {
-        return $c;
-    });
-@endphp
+$table->foreignId('uploaded_by')->constrained('users')->restrictOnDelete();
 ```
 
-karena kode logika ini seharusnya berada di `Controller` yang bertanggung jawab untuk melakukan logika yang menampilkan mata kuliah sesuai kodisi statusnya.
+Relasi ini menggunakan `restrictOnDelete()`, yang berarti `user` tidak dapat dihapus selama material tersebut masih mereferensikan `user` tersebut. Material mempunyai relasi `uploaded_by` kepada user melalui `Material`
 
-dari `index.blade.php` dipindah ke bagian `Controller`
-- `CourseController.php`
+### Solusi
+- `cascadeOnDelete()` jika materi ikut terhapus saat user dihapus, atau
+- `nullOnDelete()` jika data materi tetap ada tetapi `uploaded_by` dihapus menjadi `NULL`.
+
+---
+
+## 5. Model `User` memakai `$guarded = []`
+
+Pada `app/Models/User.php`
+
+Dalam model ini terdapat:
+
 ```php
-    public function index()
-    {
-        // Ambil semua courses dari session
-        $courses = $this->getCourses();
+protected $guarded = [];
+```
 
-        // Filter di controller: hanya tampilkan yang statusnya 'active'
-        $activeCourses = array_filter($courses, function ($course) {
-            return ($course['status'] ?? 'active') === 'active';
-        });
+Ini berbahaya karena semua atribut menjadi mass assignable secara terbuka. Artinya, request yang masuk bisa langsung mengisi field apa pun tanpa kontrol.
 
-        return view('courses.index', ['courses' => $activeCourses]);
-    }
+### Dampak
+- Risiko mass assignment.
+- Sulit untuk menjaga validasi dan keamanan data.
+
+### Solusi
+Seperti:
+```php
+protected $guarded = ['name', 'email', 'password', 'nim_nip', 'role'];
+```
+
+---
+
+## 6. `down()` di migrasi `materials` kosong
+
+Pada `database/migrations/2026_01_01_000004_create_materials_table.php`
+
+Pada migrasi `materials`, method `down()` saat ini kosong:
+
+```php
+public function down(): void
+{
+}
+```
+
+- Rollback migrasi tidak bekerja dengan benar.
+- Saat menjalankan `migrate:rollback`, tabel `materials` tidak akan dihapus.
+
+### Solusi 
+Tambahkan:
+```php
+Schema::dropIfExists('materials');
+```
+
+---
+
+## 7. Controller memakai `$request->all()`
+
+Pada `app/Http/Controllers/UserController.php`
+
+Pada `store()` dan `update()` terdapat:
+
+```php
+User::create($request->all());
+$user->update($request->all());
+```
+
+Penggunaan `$request->all()` tidak aman dan tidak disarankan karena:
+- semua input dipaksa masuk ke model,
+- tidak ada validasi.
+- dapat memasukkan field yang seharusnya tidak diproses.
+
+### Solusi
+Gunakan `validated()` atau field tertentu saja.
+
+Contoh:
+
+```php
+$data = $request->validated();
+User::create($data);
+
+$user->update($request->validated());
+```
+
+Jika validasi belum dibuat, minimal gunakan:
+
+```php
+User::create($request->only(['name', 'email', 'password', 'nim_nip', 'role']));
 ```

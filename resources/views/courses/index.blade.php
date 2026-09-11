@@ -15,19 +15,19 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($courses as $course)
+            @foreach ($courses as $course)
             <tr class="border-b">
-                <td class="p-3">{{ $course['code'] ?? $course['kode'] }}</td>
+                <td class="p-3">{{ $course->code }}</td>
                 <td class="p-3">
-                    <a href="{{ route('courses.show', $course['id']) }}" class="text-blue-600 font-semibold hover:underline">
-                        {{ $course['name'] ?? $course['nama'] }}
+                    <a href="{{ route('courses.show', $course->id) }}" class="text-blue-600 font-semibold hover:underline">
+                        {{ $course->name }}
                     </a>
                 </td>
-                <td class="p-3">{{ $course['sks'] }}</td>
-                <td class="p-3">{{ $course['lecturer'] ?? $course['dosen'] }}</td>
-                <td class="p-3 space-x-2">
-                    <a href="{{ route('courses.show', $course['id']) }}" class="text-gray-600 hover:underline">Detail</a>          
-                    <form action="" method="POST" class="inline" onsubmit="return confirm('Hapus mata kuliah ini?')">
+                <td class="p-3">{{ $course->sks }}</td>
+                <td class="p-3">{{ $course->lecturer->name ?? 'N/A' }}</td>
+                <td class="p-3 space-x-2 flex items-center">
+                    <a href="{{ route('courses.show', $course->id) }}" class="text-gray-600 hover:underline">Detail</a>
+                    <form action="{{ route('courses.destroy', $course->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus?')">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="text-red-600 hover:underline">Hapus</button>

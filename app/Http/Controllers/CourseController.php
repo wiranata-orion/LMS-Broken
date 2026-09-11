@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Course;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class CourseController extends Controller
 {
+<<<<<<< HEAD
     private array $courses = [
         [
             'id' => 1,
@@ -55,11 +58,33 @@ class CourseController extends Controller
         });
 
         return view('courses.index', ['courses' => $activeCourses]);
+=======
+    public function index()
+    {
+        $courses = Course::with('lecturer')->where('status', 'active')->get();
+        return view('courses.index', compact('courses'));
+>>>>>>> 4e0b1bfeb5804382e2efb504d81775042cb1a1fe
     }
 
     public function create()
     {
-        return view('courses.create');
+        $lecturers = User::where('role', 'dosen')->get();
+        return view('courses.create', compact('lecturers'));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => 'required|unique:courses,code',
+            'name' => 'required',
+            'sks' => 'required|numeric',
+            'lecturer_id' => 'required|exists:users,id',
+            'description' => 'nullable',
+        ]);
+
+        Course::create($validated);
+
+        return redirect()->route('courses.index')->with('success', 'Mata kuliah berhasil ditambahkan');
     }
 
     public function store(Request $request)
@@ -86,8 +111,12 @@ class CourseController extends Controller
 
     public function show($id)
     {
+<<<<<<< HEAD
         $course = collect($this->getCourses())->firstWhere('id', (int) $id);
 
+=======
+        $course = Course::with(['lecturer', 'materials', 'assignments'])->find($id);
+>>>>>>> 4e0b1bfeb5804382e2efb504d81775042cb1a1fe
         if (!$course) {
             abort(404);
         }
@@ -95,8 +124,30 @@ class CourseController extends Controller
         return view('courses.show', compact('course'));
     }
 
+    public function edit(Course $course)
+    {
+        $lecturers = User::where('role', 'dosen')->get();
+        return view('courses.edit', compact('course', 'lecturers'));
+    }
+
+    public function update(Request $request, Course $course)
+    {
+        $validated = $request->validate([
+            'code' => 'required|unique:courses,code,' . $course->id,
+            'name' => 'required',
+            'sks' => 'required|numeric',
+            'lecturer_id' => 'required|exists:users,id',
+            'description' => 'nullable',
+        ]);
+
+        $course->update($validated);
+
+        return redirect()->route('courses.index')->with('success', 'Mata kuliah berhasil diperbarui');
+    }
+
     public function destroy($id)
     {
+<<<<<<< HEAD
         $courses = $this->getCourses();
 
         // Hapus elemen array yang id-nya sesuai
@@ -106,6 +157,10 @@ class CourseController extends Controller
 
         // Simpan sisa data kembali ke session
         session()->put('courses', array_values($courses));
+=======
+        $course = Course::findOrFail($id);
+        $course->delete();
+>>>>>>> 4e0b1bfeb5804382e2efb504d81775042cb1a1fe
 
         return redirect()->route('courses.index')->with('success', 'Mata kuliah berhasil dihapus');
     }
