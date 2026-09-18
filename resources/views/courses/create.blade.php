@@ -3,6 +3,7 @@
         <h1 class="text-2xl font-bold text-gray-900 mb-6">Tambah Mata Kuliah Baru</h1>
 
         <form action="{{ route('courses.store') }}" method="POST" class="space-y-5">
+            @csrf
 
             <div class="grid grid-cols-2 gap-4">
                 <div>

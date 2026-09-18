@@ -5,41 +5,39 @@ namespace App\Http\Controllers;
 use App\Models\Course;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class CourseController extends Controller
 {
     public function index(Request $request)
     {
-        if ($request->has('search')) {
-            session(['course_search' => $request->search]);
-        }
-        if ($request->has('status')) {
-            session(['course_status' => $request->status]);
-        }
-
-        $search = session('course_search');
-        $status = session('course_status', 'active');
+        Gate::authorize('viewAny', Course::class);
 
         $query = Course::with('lecturer')->withCount('students');
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%'.$search.'%')
-                  ->orWhere('code', 'like', '%'.$search.'%');
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%'.$request->search.'%')
+                  ->orWhere('code', 'like', '%'.$request->search.'%');
             });
         }
 
-        if ($status) {
-            $query->where('status', $status);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        } else {
+            $query->where('status', 'active');
         }
 
-        $courses = $query->paginate(10);
+        $courses = $query->paginate(10)->withQueryString();
 
         return view('courses.index', compact('courses'));
     }
 
     public function create()
     {
+        Gate::authorize('create', Course::class);
+
         $lecturers = User::where('role', 'dosen')->get();
 
         return view('courses.create', compact('lecturers'));
@@ -47,22 +45,26 @@ class CourseController extends Controller
 
     public function store(Request $request)
     {
-        Course::create([
-            'code' => $request->code,
-            'name' => $request->name,
-            'description' => $request->description,
-            'sks' => $request->sks,
-            'lecturer_id' => $request->lecturer_id,
-            'status' => $request->status ?? 'draft',
+        Gate::authorize('create', Course::class);
+
+        $validated = $request->validate([
+            'code' => 'required|string|max:20|unique:courses,code',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'sks' => 'required|integer|min:1|max:6',
+            'lecturer_id' => 'required|exists:users,id',
+            'status' => 'required|in:draft,active,archived',
         ]);
 
-        $courses = Course::paginate(10);
+        Course::create($validated);
 
-        return view('courses.index', compact('courses'));
+        return redirect()->route('courses.index')->with('success', 'Mata kuliah berhasil ditambahkan.');
     }
 
     public function show(Course $course)
     {
+        Gate::authorize('view', $course);
+
         $course->load(['lecturer', 'materials', 'assignments.submissions']);
 
         return view('courses.show', compact('course'));
@@ -70,6 +72,8 @@ class CourseController extends Controller
 
     public function edit(Course $course)
     {
+        Gate::authorize('update', $course);
+
         $lecturers = User::where('role', 'dosen')->get();
 
         return view('courses.edit', compact('course', 'lecturers'));
@@ -77,8 +81,10 @@ class CourseController extends Controller
 
     public function update(Request $request, Course $course)
     {
+        Gate::authorize('update', $course);
+
         $validated = $request->validate([
-            'code' => 'required|string|max:20|unique:courses,code',
+            'code' => ['required', 'string', 'max:20', Rule::unique('courses', 'code')->ignore($course->id)],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'sks' => 'required|integer|min:1|max:6',
@@ -93,6 +99,8 @@ class CourseController extends Controller
 
     public function destroy(Course $course)
     {
+        Gate::authorize('delete', $course);
+
         $course->delete();
 
         return redirect()->route('courses.index')->with('success', 'Mata kuliah berhasil dihapus.');
