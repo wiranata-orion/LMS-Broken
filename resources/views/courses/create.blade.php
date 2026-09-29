@@ -56,7 +56,7 @@
             </div>
 
             <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                <a href="{{ route('courses.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">Batal</a>
+                <a href="{{ route(auth()->user()->role === 'mahasiswa' ? 'student.courses.index' : 'lecturer.courses.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">Batal</a>
                 <button type="submit" class="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow hover:bg-blue-700">Simpan</button>
             </div>
         </form>

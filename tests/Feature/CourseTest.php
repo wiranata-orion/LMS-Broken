@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Course;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,9 +12,9 @@ class CourseTest extends TestCase
 
     public function test_authenticated_user_can_view_courses_list(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'mahasiswa']);
 
-        $response = $this->actingAs($user)->get('/courses');
+        $response = $this->actingAs($user)->get(route('student.courses.index'));
 
         $response->assertStatus(200);
     }
@@ -33,7 +32,7 @@ class CourseTest extends TestCase
             'description' => 'Test description',
         ]);
 
-        $response->assertRedirect('/courses');
+        $response->assertRedirect(route('lecturer.courses.index'));
         $this->assertDatabaseHas('courses', [
             'code' => 'TEST101',
             'name' => 'Testing Course',

@@ -51,6 +51,8 @@ class SubmissionController extends Controller
 
     public function download(Submission $submission)
     {
+        Gate::authorize('download', $submission);
+
         if (! $submission->file_path || ! Storage::disk('local')->exists($submission->file_path)) {
             abort(404, 'Berkas submission tidak ditemukan.');
         }
