@@ -32,7 +32,7 @@
                             <a href="{{ route('dashboard') }}" class="px-3 py-2 rounded-md text-sm font-medium {{ request()->routeIs('dashboard') ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
                                 Dashboard
                             </a>
-                            <a href="{{ route('courses.index') }}" class="px-3 py-2 rounded-md text-sm font-medium {{ request()->routeIs('courses.*') ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                            <a href="{{ route(auth()->user()->role === 'mahasiswa' ? 'student.courses.index' : 'lecturer.courses.index') }}" class="px-3 py-2 rounded-md text-sm font-medium {{ request()->routeIs('*.courses.index') ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
                                 Mata Kuliah
                             </a>
                             @if(auth()->user()->role === 'admin')

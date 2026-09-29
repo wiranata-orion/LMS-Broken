@@ -13,7 +13,7 @@
             </div>
 
             <div class="flex items-center space-x-3">
-                <a href="{{ route('courses.index') }}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition">
+                <a href="{{ route(auth()->user()->role === 'mahasiswa' ? 'student.courses.index' : 'lecturer.courses.index') }}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition">
                     &larr; Kembali
                 </a>
                 @can('update', $course)
@@ -97,7 +97,11 @@
                         @endif
 
                         @can('delete', $material)
-                        <a href="{{ route('materials.destroy', $material) }}" onclick="return confirm('Hapus materi ini?')" class="text-red-600 text-xs hover:underline">Hapus</a>
+                        <form action="{{ route('materials.destroy', $material) }}" method="POST" onsubmit="return confirm('Hapus materi ini?')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 text-xs hover:underline">Hapus</button>
+                        </form>
                         @endcan
                     </div>
                 </div>
